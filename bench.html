@@ -6,15 +6,15 @@
 <title>colophon — the bench.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;1,9..144,300;1,9..144,400&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
-    --ink: #0d1014; --ink-soft: #2a2f36;
-    --paper: #f4ede2; --paper-warm: #ebe1d1;
-    --rule: rgba(13, 16, 20, 0.18); --accent: #b1542a;
-    --green: #5fa86a; --amber: #d4a64a; --grey: #9a9a9a;
-    --serif: 'Fraunces', 'Times New Roman', serif;
-    --sans: 'Inter', -apple-system, sans-serif;
+    --ink: #0d0d0b; --ink-soft: #888580;
+    --paper: #f4f1ec; --paper-warm: #edeae3;
+    --rule: rgba(13,13,11,0.1); --accent: #ff5100;
+    --green: #2a8a3a; --amber: #c87c18; --grey: #888580;
+    --serif: 'Space Grotesk', sans-serif;
+    --sans: 'IBM Plex Mono', monospace;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body {
@@ -135,12 +135,17 @@
 </head>
 <body>
 
-<!-- ===== ACCESS GATE (shown if no valid token) ===== -->
+<!-- ===== ACCESS GATE ===== -->
 <div id="gateView" class="gate" style="display:none;">
   <div class="gate-inner">
-    <h2>your pass <em>expired</em>—<br>or never started.</h2>
-    <p>the bench is private. grab a week pass for $49 and you're in. no account, no password, just a link to bookmark.</p>
-    <a href="pricing.html" class="gate-cta">get a pass</a>
+    <h2 id="gateTitle">enter your pass code.</h2>
+    <p id="gateDesc">you received a link after purchase. paste your code below — or type anything to demo.</p>
+    <div style="display:flex;width:100%;max-width:440px;border:1px solid var(--rule);margin:0 auto 20px">
+      <input id="codeInput" placeholder="colophon-xxxx" onkeydown="if(event.key==='Enter')tryUnlock()" style="flex:1;background:transparent;border:none;border-right:1px solid var(--rule);padding:13px 16px;font-family:var(--sans);font-size:13px;color:var(--ink);outline:none;text-transform:none"/>
+      <button onclick="tryUnlock()" style="font-family:var(--sans);font-size:10px;letter-spacing:0.08em;background:var(--ink);color:var(--paper);border:none;padding:13px 20px">unlock →</button>
+    </div>
+    <p id="gateErr" style="font-family:var(--sans);font-size:10px;color:#b04040;display:none">type anything to preview.</p>
+    <a href="pricing.html" class="gate-cta" style="margin-top:12px;display:inline-flex">get a pass →</a>
   </div>
 </div>
 
@@ -148,14 +153,13 @@
 <div id="benchView" style="display:none;">
 
 <header>
-  <a href="index.html" class="logo">
-    <span class="mark"></span>
-    <span>colo<em>phon</em></span>
+  <a href="index.html" class="logo" style="font-family:var(--serif);font-size:15px;font-weight:700;letter-spacing:-0.02em;color:var(--ink)">
+    colo<span style="color:var(--accent)">phon</span>
   </a>
   <div class="pass-badge">
     <span class="pulse"></span>
     <span class="label">pass active —</span>
-    <em id="passExpiry">expires sun, may 3</em>
+    <span id="passExpiry" style="font-family:var(--sans);font-size:11px"></span>
   </div>
 </header>
 
@@ -230,30 +234,70 @@
 
 <script>
 // ============ ACCESS GATE ============
-// Production: validate token against server / Sheets endpoint
-// Demo mode: any URL with ?key=anything OR add ?demo=1 to see the bench
 function getQueryParam(name) {
   return new URLSearchParams(window.location.search).get(name);
 }
-const accessKey = getQueryParam('key') || getQueryParam('demo');
-const isAuthorized = !!accessKey;
 
-if (!isAuthorized) {
-  document.getElementById('gateView').style.display = 'flex';
-} else {
+function makeToken(days) {
+  return btoa(JSON.stringify({ exp: Date.now() + days * 86400000 }));
+}
+
+function checkToken(t) {
+  try { return Date.now() < JSON.parse(atob(t)).exp ? 'valid' : 'expired'; }
+  catch { return 'invalid'; }
+}
+
+function tryUnlock() {
+  const code = document.getElementById('codeInput').value.trim();
+  if (!code) { document.getElementById('gateErr').style.display = 'block'; return; }
+  showBench('demo');
+}
+
+function showBench(tokenOrKey) {
+  document.getElementById('gateView').style.display = 'none';
   document.getElementById('benchView').style.display = 'block';
-  initBench();
+  initBench(tokenOrKey);
+}
+
+// check for ?t= (new token) or ?key= (legacy)
+const t = getQueryParam('t');
+const legacyKey = getQueryParam('key') || getQueryParam('demo');
+
+if (t) {
+  const status = checkToken(t);
+  if (status === 'expired') {
+    document.getElementById('gateTitle').textContent = 'pass expired.';
+    document.getElementById('gateDesc').textContent = 'your access window has closed. purchase a new pass for a fresh link.';
+    document.getElementById('gateView').style.display = 'flex';
+  } else if (status === 'valid') {
+    showBench(t);
+  } else {
+    document.getElementById('gateView').style.display = 'flex';
+  }
+} else if (legacyKey) {
+  showBench(legacyKey);
+} else {
+  document.getElementById('gateView').style.display = 'flex';
 }
 
 // ============ BENCH DATA ============
 let BENCH = []; // populated below
 
-// Set expiry display (demo: 7 days from now)
-function setExpiry() {
-  const d = new Date();
-  d.setDate(d.getDate() + 7);
-  const opts = { weekday: 'short', month: 'short', day: 'numeric' };
-  document.getElementById('passExpiry').textContent = 'expires ' + d.toLocaleDateString('en-US', opts).toLowerCase();
+function setExpiry(tokenOrKey) {
+  const el = document.getElementById('passExpiry');
+  if (!el) return;
+  try {
+    const parsed = JSON.parse(atob(tokenOrKey));
+    if (parsed.exp) {
+      const left = parsed.exp - Date.now();
+      const d = Math.floor(left/86400000), h = Math.floor((left%86400000)/3600000), m = Math.floor((left%3600000)/60000);
+      el.textContent = d > 0 ? `${d}d ${h}h remaining` : h > 0 ? `${h}h ${m}m remaining` : `${m}m remaining`;
+      return;
+    }
+  } catch {}
+  // fallback for legacy keys: show 7 days from now
+  const d = new Date(); d.setDate(d.getDate() + 7);
+  el.textContent = 'expires ' + d.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric' }).toLowerCase();
 }
 
 // Track contact clicks (demo: console log; production: POST to your endpoint)
@@ -262,9 +306,8 @@ function trackContact(email, name) {
   // production: fetch('/api/track', { method: 'POST', body: JSON.stringify({ email, name }) });
 }
 
-function initBench() {
-  setExpiry();
-  // Inject and process data
+function initBench(tokenOrKey) {
+  setExpiry(tokenOrKey);
   loadData();
 }
 
