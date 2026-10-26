@@ -1,0 +1,8 @@
+{
+  "crons": [{ "path": "/api/ping", "schedule": "0 9 */20 * *" }],
+  "rewrites": [
+    { "source": "/(bench|look|concierge|apply)", "destination": "/index.html" }
+  ],
+  "cleanUrls": true,
+  "trailingSlash": false
+}
